@@ -5,7 +5,7 @@
 #removes roots ability to ssh in
 
 USERNAME=$1
-GITHUB="https://raw.githubusercontent.com/nicklubelczyk/SYS-265/refs/heads/main/SYS265/linux/public-keys/id_rsa.pub"
+GITHUB="https://raw.githubusercontent.com/nicklubelczyk/SYS-265/refs/heads/main/linux/public-keys/id_rsa.pub"
 
 #Creates user using USERNAME
 sudo useradd -m -d /home/$USERNAME -s /bin/bash $USERNAME
