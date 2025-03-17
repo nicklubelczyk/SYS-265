@@ -1,0 +1,36 @@
+---
+- name: Disable Unnecessary Services and Configure Firewall
+  hosts: all
+  become: yes
+  tasks:
+    # Disable Unnecessary Services
+    - name: Stop and disable CUPS service on Linux
+      ansible.builtin.systemd:
+        name: cups
+        state: stopped
+        enabled: no
+      when: ansible_os_family == "RedHat" or ansible_os_family == "Debian"
+
+    - name: Disable Spooler service on Windows
+      ansible.windows.win_service:
+        name: Spooler
+        state: stopped
+        start_mode: disabled
+      when: ansible_os_family == "Windows"
+
+    # Enable Firewall Rules (Minimal)
+    - name: Configure firewalld on Linux
+      ansible.posix.firewalld:
+        port: "{{ item }}/tcp"
+        permanent: yes
+        state: enabled
+      loop:
+        - "22"
+        - "3389"
+      when: ansible_os_family == "RedHat"
+
+    - name: Configure Windows Firewall
+      ansible.windows.win_shell: |
+        New-NetFirewallRule -DisplayName "Allow SSH" -Direction Inbound -LocalPort 22 -Protocol TCP -Action Allow
+        New-NetFirewallRule -DisplayName "Allow RDP" -Direction Inbound -LocalPort 3389 -Protocol TCP -Action Allow
+      when: ansible_os_family == "Windows"
