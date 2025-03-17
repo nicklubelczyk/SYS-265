@@ -1,37 +1,84 @@
 ---
-- name: Disable Unnecessary Services (Windows Linux) and Minimize Firewall
+- name: Configure Services and Firewall
   hosts: all
-  become: yes
+  gather_facts: true
+
   tasks:
-    # Disable CUPS and Spooler Services
-    - name: Stop CUPS service Linux
-      ansible.builtin.systemd:
-        name: cups
-        state: stopped
-        enabled: no
-      when: ansible_os_family == "Rocky"
+    - name: Disable CUPS service on Linux
+      when: ansible_os_family == "RedHat"
+      block:
+        - name: Stop CUPS service
+          ansible.builtin.systemd:
+            name: cups
+            state: stopped
+          register: cups_stop
+          ignore_errors: true
 
-    - name: Disable Spooler service Windows
-      ansible.windows.win_service:
-        name: Spooler
-        state: stopped
-        start_mode: disabled
+        - name: Disable CUPS service
+          ansible.builtin.systemd:
+            name: cups
+            enabled: false
+          register: cups_disable
+          ignore_errors: true
+
+        - name: Debug CUPS service status
+          ansible.builtin.debug:
+            msg: "CUPS service stopped: {{ cups_stop.changed }}, disabled: {{ cups_disable.changed }}"
+
+    - name: Disable Spooler service on Windows
       when: ansible_os_family == "Windows"
+      block:
+        - name: Stop and disable Spooler service
+          ansible.windows.win_service:
+            name: Spooler
+            state: stopped
+            start_mode: disabled
+          register: spooler_result
 
-    # Enable Only Minimal Firewall Rules
-    - name: Linux Firewall
-      ansible.posix.firewalld:
-        port: "{{ item }}/tcp"
-        permanent: yes
-        state: enabled
-      loop:
-        - "22"
-        - "3389"
-        - "10000"
-      when: ansible_os_family == "Rocky"
+        - name: Debug Spooler service status
+          ansible.builtin.debug:
+            msg: "Spooler service stopped and disabled: {{ spooler_result.changed }}"
 
-    - name: Windows Firewall
-      ansible.windows.win_shell: |
-        New-NetFirewallRule -DisplayName "Allow SSH" -Direction Inbound -LocalPort 22 -Protocol TCP -Action Allow
-        New-NetFirewallRule -DisplayName "Allow RDP" -Direction Inbound -LocalPort 3389 -Protocol TCP -Action Allow
+    - name: Configure firewall on Linux
+      when: ansible_os_family == "RedHat"
+      block:
+        - name: Enable and start firewalld
+          ansible.builtin.systemd:
+            name: firewalld
+            state: started
+            enabled: true
+
+        - name: Allow SSH (port 22)
+          ansible.posix.firewalld:
+            port: 22/tcp
+            permanent: true
+            state: enabled
+
+        - name: Reload firewalld
+          ansible.builtin.command: firewall-cmd --reload
+          changed_when: false
+
+    - name: Configure firewall on Windows
       when: ansible_os_family == "Windows"
+      block:
+        - name: Enable Windows Firewall
+          ansible.windows.win_firewall:
+            state: enabled
+            profiles:
+              - Domain
+              - Private
+              - Public
+
+        - name: Allow RDP (port 3389)
+          community.windows.win_firewall_rule:
+            name: Allow RDP
+            localport: 3389
+            action: allow
+            direction: in
+            protocol: tcp
+            state: present
+            enabled: yes
+
+        - name: Debug Windows Firewall status
+          ansible.builtin.debug:
+            msg: "Windows Firewall configured with RDP rule"
