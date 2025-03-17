@@ -1,29 +1,30 @@
 ---
-- name: Backup and Update Linux and Windows
+- name: Backup and Update Linux and Windows Servers
   hosts: all
   gather_facts: yes
+  become: yes
 
   tasks:
     - name: Backup sshd_config on Linux
       ansible.builtin.copy:
         src: /etc/ssh/sshd_config
-        dest: /etc/ssh/sshd_config.backup
+        dest: "/etc/ssh/sshd_config_{{ ansible_date_time.date }}.bak"
         remote_src: yes
       when: ansible_os_family != "Windows"
 
     - name: Backup hosts file on Windows
       ansible.windows.win_copy:
         src: C:\Windows\System32\drivers\etc\hosts
-        dest: C:\Windows\System32\drivers\etc\hosts.backup
+        dest: "C:\Windows\System32\drivers\etc\hosts_{{ ansible_date_time.date }}.bak"
         remote_src: yes
       when: ansible_os_family == "Windows"
 
-    - name: Update Linux packages without kernel upgrade
+    - name: Update Rocky Linux packages without kernel upgrade
       ansible.builtin.dnf:
         name: "*"
         state: latest
         exclude: kernel*
-      when: ansible_os_family == "RedHat"
+      when: ansible_distribution == "Rocky"
 
     - name: Update Ubuntu packages without kernel upgrade
       ansible.builtin.apt:
