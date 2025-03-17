@@ -1,37 +1,37 @@
 ---
-- name: Set Minimum Password Length and Disable USB Storage
+- name: Min Password Length and Disable USB
   hosts: [windows]
   tasks:
-    - name: Set Minimum Password Length to 12 characters
+    - name: Minimum Password Length
       ansible.windows.win_shell: |
         Set-ADDefaultDomainPasswordPolicy -Identity (Get-ADDomain).DistinguishedName -MinPasswordLength 12
       register: password_length_result
 
-    - name: Display Password Length Result
+    - name: Display Password Length
       ansible.builtin.debug:
         var: password_length_result.stdout_lines
 
-    - name: Verify Minimum Password Length
+    - name: Verify Minimum Password
       ansible.windows.win_shell: |
         (Get-ADDefaultDomainPasswordPolicy).MinPasswordLength
       register: verify_password_length
 
-    - name: Display Verification Result
+    - name: Display Verification
       ansible.builtin.debug:
         var: verify_password_length.stdout_lines
 
-    - name: Disable USB Storage Devices
+    - name: Disable USB
       ansible.windows.win_regedit:
         path: HKLM:\SYSTEM\CurrentControlSet\Services\USBSTOR
         name: Start
         data: 4
         type: dword
 
-    - name: Verify USB Storage Devices Disabled
+    - name: Verify USB
       ansible.windows.win_shell: |
         Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\USBSTOR" -Name "Start"
       register: verify_usb_disabled
 
-    - name: Display USB Disabled Verification Result
+    - name: USB Disabled Verification
       ansible.builtin.debug:
         var: verify_usb_disabled.stdout_lines
