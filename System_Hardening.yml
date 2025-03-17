@@ -9,7 +9,7 @@
         name: cups
         state: stopped
         enabled: no
-      when: ansible_os_family == "RedHat" or ansible_os_family == "Debian"
+      when: ansible_os_family == "Rocky"
 
     - name: Disable Spooler service Windows
       ansible.windows.win_service:
@@ -19,7 +19,7 @@
       when: ansible_os_family == "Windows"
 
     # Enable Only Minimal Firewall Rules
-    - name: Windows Firewall
+    - name: Linux Firewall
       ansible.posix.firewalld:
         port: "{{ item }}/tcp"
         permanent: yes
@@ -28,7 +28,7 @@
         - "22"
         - "3389"
         - "10000"
-      when: ansible_os_family == "RedHat"
+      when: ansible_os_family == "Rocky"
 
     - name: Windows Firewall
       ansible.windows.win_shell: |
