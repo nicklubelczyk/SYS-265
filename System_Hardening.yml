@@ -1,84 +1,40 @@
 ---
-- name: Configure Services and Firewall
-  hosts: all
-  gather_facts: true
-
+- name: Backup and Update Linux Servers
+  hosts: linux
+  become: yes
   tasks:
-    - name: Disable CUPS service on Linux
-      when: ansible_os_family == "RedHat"
-      block:
-        - name: Stop CUPS service
-          ansible.builtin.systemd:
-            name: cups
-            state: stopped
-          register: cups_stop
-          ignore_errors: true
+    - name: Backup sshd_config on Linux
+      ansible.builtin.copy:
+        src: /etc/ssh/sshd_config
+        dest: "/etc/ssh/sshd_config_{{ ansible_date_time.date }}.bak"
+        remote_src: yes
 
-        - name: Disable CUPS service
-          ansible.builtin.systemd:
-            name: cups
-            enabled: false
-          register: cups_disable
-          ignore_errors: true
+    - name: Update Rocky Linux packages without kernel upgrade
+      ansible.builtin.dnf:
+        name: "*"
+        state: latest
+        exclude: kernel*
+      when: ansible_distribution == "Rocky"
 
-        - name: Debug CUPS service status
-          ansible.builtin.debug:
-            msg: "CUPS service stopped: {{ cups_stop.changed }}, disabled: {{ cups_disable.changed }}"
+    - name: Update Ubuntu packages without kernel upgrade
+      ansible.builtin.apt:
+        upgrade: yes
+        update_cache: yes
+        cache_valid_time: 3600
+        exclude: linux-image-*,linux-headers-*
+      when: ansible_distribution == "Ubuntu"
 
-    - name: Disable Spooler service on Windows
-      when: ansible_os_family == "Windows"
-      block:
-        - name: Stop and disable Spooler service
-          ansible.windows.win_service:
-            name: Spooler
-            state: stopped
-            start_mode: disabled
-          register: spooler_result
+- name: Backup and Update Windows Servers
+  hosts: windows
+  tasks:
+    - name: Backup hosts file on Windows
+      ansible.windows.win_copy:
+        src: C:\Windows\System32\drivers\etc\hosts
+        dest: "C:\Windows\System32\drivers\etc\hosts_{{ ansible_date_time.date }}.bak"
+        remote_src: yes
 
-        - name: Debug Spooler service status
-          ansible.builtin.debug:
-            msg: "Spooler service stopped and disabled: {{ spooler_result.changed }}"
-
-    - name: Configure firewall on Linux
-      when: ansible_os_family == "RedHat"
-      block:
-        - name: Enable and start firewalld
-          ansible.builtin.systemd:
-            name: firewalld
-            state: started
-            enabled: true
-
-        - name: Allow SSH (port 22)
-          ansible.posix.firewalld:
-            port: 22/tcp
-            permanent: true
-            state: enabled
-
-        - name: Reload firewalld
-          ansible.builtin.command: firewall-cmd --reload
-          changed_when: false
-
-    - name: Configure firewall on Windows
-      when: ansible_os_family == "Windows"
-      block:
-        - name: Enable Windows Firewall
-          ansible.windows.win_firewall:
-            state: enabled
-            profiles:
-              - Domain
-              - Private
-              - Public
-
-        - name: Allow RDP (port 3389)
-          community.windows.win_firewall_rule:
-            name: Allow RDP
-            localport: 3389
-            action: allow
-            direction: in
-            protocol: tcp
-            state: present
-            enabled: yes
-
-        - name: Debug Windows Firewall status
-          ansible.builtin.debug:
-            msg: "Windows Firewall configured with RDP rule"
+    - name: Install critical Windows updates
+      ansible.windows.win_updates:
+        category_names:
+          - CriticalUpdates
+        state: installed
