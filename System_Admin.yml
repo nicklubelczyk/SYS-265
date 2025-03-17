@@ -1,15 +1,15 @@
 ---
-- name: Backup Configuration Files and Update System Packages
+- name: Backup and Update Linux and Windows Servers
   hosts: all
-  become: yes
+  gather_facts: yes
+
   tasks:
-    # Backup Configuration Files
     - name: Backup sshd_config on Linux
       ansible.builtin.copy:
         src: /etc/ssh/sshd_config
         dest: /etc/ssh/sshd_config.backup
         remote_src: yes
-      when: ansible_os_family == "Rocky"
+      when: ansible_os_family != "Windows"
 
     - name: Backup hosts file on Windows
       ansible.windows.win_copy:
@@ -18,13 +18,20 @@
         remote_src: yes
       when: ansible_os_family == "Windows"
 
-    # Update System Packages
-    - name: Update packages on Linux (excluding kernel)
-      ansible.builtin.yum:
-        name: '*'
+    - name: Update Linux packages without kernel upgrade
+      ansible.builtin.dnf:
+        name: "*"
         state: latest
         exclude: kernel*
-      when: ansible_os_family == "Rocky"
+      when: ansible_os_family == "RedHat"
+
+    - name: Update Ubuntu packages without kernel upgrade
+      ansible.builtin.apt:
+        upgrade: yes
+        update_cache: yes
+        cache_valid_time: 3600
+        exclude: linux-image-*,linux-headers-*
+      when: ansible_distribution == "Ubuntu"
 
     - name: Install critical Windows updates
       ansible.windows.win_updates:
