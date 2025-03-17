@@ -9,7 +9,7 @@
         src: /etc/ssh/sshd_config
         dest: /etc/ssh/sshd_config.backup
         remote_src: yes
-      when: ansible_os_family == "RedHat" or ansible_os_family == "Debian"
+      when: ansible_os_family == "Rocky"
 
     - name: Backup hosts file on Windows
       ansible.windows.win_copy:
@@ -24,7 +24,7 @@
         name: '*'
         state: latest
         exclude: kernel*
-      when: ansible_os_family == "RedHat"
+      when: ansible_os_family == "Rocky"
 
     - name: Install critical Windows updates
       ansible.windows.win_updates:
