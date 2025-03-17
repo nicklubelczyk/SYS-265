@@ -1,5 +1,5 @@
 ---
-- name: Backup and Update Linux and Windows Servers
+- name: Backup and Update Linux and Windows
   hosts: all
   gather_facts: yes
 
