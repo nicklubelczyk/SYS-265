@@ -6,7 +6,7 @@
     - name: Backup sshd_config on Linux
       ansible.builtin.copy:
         src: /etc/ssh/sshd_config
-        dest: "/etc/ssh/sshd_config_{{ ansible_date_time.date }}.bak"
+        dest: "/etc/ssh/sshd_config.backup"
         remote_src: yes
 
     - name: Update Rocky Linux packages without kernel upgrade
@@ -30,7 +30,7 @@
     - name: Backup hosts file on Windows
       ansible.windows.win_copy:
         src: C:\Windows\System32\drivers\etc\hosts
-        dest: "C:\Windows\System32\drivers\etc\hosts_{{ ansible_date_time.date }}.bak"
+        dest: "C:\Windows\System32\drivers\etc\hosts.backup"
         remote_src: yes
 
     - name: Install critical Windows updates
