@@ -1,14 +1,8 @@
 ---
-- name: Backup and Verify Disk Usage on Linux Servers
+- name: Verify Disk Usage and Backup Config Files on Linux Servers
   hosts: linux
   become: yes
   tasks:
-    - name: Backup sshd_config
-      ansible.builtin.copy:
-        src: /etc/ssh/sshd_config
-        dest: /etc/ssh/sshd_config.backup
-        remote_src: yes
-
     - name: Run df -h on Linux servers
       ansible.builtin.shell: df -h
       register: disk_usage
@@ -17,15 +11,15 @@
       ansible.builtin.debug:
         var: disk_usage.stdout_lines
 
-- name: Backup and Verify Disk Usage on Windows Servers  
-  hosts: windows
-  tasks:
-    - name: Backup hosts file
-      ansible.windows.win_copy:
-        src: C:\Windows\System32\drivers\etc\hosts
-        dest: C:\Windows\System32\drivers\etc\hosts.backup
+    - name: Backup sshd_config
+      ansible.builtin.copy:
+        src: /etc/ssh/sshd_config
+        dest: /etc/ssh/sshd_config.backup
         remote_src: yes
 
+- name: Verify Disk Usage and Backup Config Files on Windows Servers
+  hosts: windows
+  tasks:
     - name: Run Get-PSDrive on Windows servers
       ansible.windows.win_shell: |
         Get-PSDrive -PSProvider 'FileSystem' | Select-Object Name, @{Name="UsedGB";Expression={[math]::Round($_.Used/1GB, 2)}}, @{Name="FreeGB";Expression={[math]::Round($_.Free/1GB, 2)}}
@@ -34,3 +28,20 @@
     - name: Display Windows disk usage
       ansible.builtin.debug:
         var: disk_usage.stdout_lines
+
+    - name: Backup hosts file
+      ansible.windows.win_copy:
+        src: C:\Windows\System32\drivers\etc\hosts
+        dest: C:\Windows\System32\drivers\etc\hosts.backup
+        remote_src: yes
+
+- name: Generate Summarized Report
+  hosts: localhost
+  tasks:
+    - name: Combine disk usage results
+      ansible.builtin.set_fact:
+        combined_report: "{{ groups['linux'] | map('extract', hostvars) | list | map(attribute='disk_usage') | list + groups['windows'] | map('extract', hostvars) | list | map(attribute='disk_usage') | list }}"
+
+    - name: Display summarized report
+      ansible.builtin.debug:
+        var: combined_report
