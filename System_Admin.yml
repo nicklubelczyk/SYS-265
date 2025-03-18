@@ -17,7 +17,7 @@
       ansible.builtin.debug:
         var: disk_usage.stdout_lines
 
-- name: Backup and Verify Disk Usage Windows Servers  
+  - name: Backup and Verify Disk Usage Windows Servers  
   hosts: windows
   tasks:
     - name: Backup hosts file
