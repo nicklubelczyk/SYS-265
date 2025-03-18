@@ -2,6 +2,7 @@
 - name: Configure Linux Servers
   hosts: linux
   become: yes
+  gather_facts: false
   tasks:
     - name: Stop and disable CUPS service
       ansible.builtin.systemd:
