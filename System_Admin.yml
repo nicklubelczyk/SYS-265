@@ -1,55 +1,31 @@
 ---
-- name: Disable Unnecessary Services and Configure Firewall Rules
+- name: Backup and Update Linux Servers
+  hosts: linux
+  become: yes
+  tasks:
+    - name: Backup sshd_config
+      ansible.builtin.copy:
+        src: /etc/ssh/sshd_config
+        dest: /etc/ssh/sshd_config.backup
+        remote_src: yes
 
-  # Tasks for Linux hosts
-  - hosts: linux
-    become: yes
-    tasks:
-      # Disable the CUPS service on Linux
-      - name: Stop and disable the CUPS service
-        ansible.builtin.systemd:
-          name: cups
-          state: stopped
-          enabled: no
+    - name: Update packages excluding kernel
+      ansible.builtin.yum:
+        name: '*'
+        state: latest
+        exclude: kernel*
 
-      # Configure firewalld to allow only necessary ports (22, 3389)
-      - name: Allow SSH and RDP ports in firewalld
-        ansible.posix.firewalld:
-          port: "{{ item }}/tcp"
-          permanent: yes
-          state: enabled
-        loop:
-          - "22"   # SSH
-          - "3389" # RDP
+- name: Backup and Update Windows Servers  
+  hosts: windows
+  tasks:
+    - name: Backup hosts file
+      ansible.windows.win_copy:
+        src: C:\Windows\System32\drivers\etc\hosts
+        dest: C:\Windows\System32\drivers\etc\hosts.backup
+        remote_src: yes
 
-      # Reload firewalld to apply changes
-      - name: Reload firewalld to apply changes
-        ansible.builtin.service:
-          name: firewalld
-          state: reloaded
-
-  # Tasks for Windows hosts
-  - hosts: windows
-    tasks:
-      # Disable the Spooler service on Windows
-      - name: Stop and disable the Spooler service
-        ansible.windows.win_service:
-          name: Spooler
-          state: stopped
-          start_mode: disabled
-
-      # Configure Windows Firewall to allow only necessary ports (22, 3389)
-      - name: Allow SSH and RDP ports in Windows Firewall
-        ansible.windows.win_shell: |
-          New-NetFirewallRule -DisplayName "Allow SSH" -Direction Inbound -LocalPort 22 -Protocol TCP -Action Allow
-          New-NetFirewallRule -DisplayName "Allow RDP" -Direction Inbound -LocalPort 3389 -Protocol TCP -Action Allow
-
-      # Verify firewall rules were added (optional)
-      - name: Verify Windows Firewall rules for SSH and RDP
-        ansible.windows.win_shell: |
-          Get-NetFirewallRule | Where-Object { $_.DisplayName -like "Allow SSH" -or $_.DisplayName -like "Allow RDP" }
-        register: firewall_rules_check
-
-      - name: Display firewall rules verification result
-        ansible.builtin.debug:
-          var: firewall_rules_check.stdout_lines
+    - name: Install critical Windows updates
+      ansible.windows.win_updates:
+        category_names:
+          - CriticalUpdates
+        state: installed
