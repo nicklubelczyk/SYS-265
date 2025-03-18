@@ -1,5 +1,5 @@
 ---
-- name: Backup and Verify Disk Usage Linux Servers
+- name: Backup and Verify Disk Usage on Linux Servers
   hosts: linux
   become: yes
   tasks:
@@ -9,7 +9,7 @@
         dest: /etc/ssh/sshd_config.backup
         remote_src: yes
 
-     - name: Run df -h on Linux servers
+    - name: Run df -h on Linux servers
       ansible.builtin.shell: df -h
       register: disk_usage
 
@@ -17,7 +17,7 @@
       ansible.builtin.debug:
         var: disk_usage.stdout_lines
 
-  - name: Backup and Verify Disk Usage Windows Servers  
+- name: Backup and Verify Disk Usage on Windows Servers  
   hosts: windows
   tasks:
     - name: Backup hosts file
