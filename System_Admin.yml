@@ -1,42 +1,55 @@
 ---
-- name: Backup and Update Linux and Windows Servers
-  hosts: all
-  gather_facts: yes
-  become: yes
+- name: Disable Unnecessary Services and Configure Firewall Rules
 
-  tasks:
-    - name: Backup sshd_config on Linux
-      ansible.builtin.copy:
-        src: /etc/ssh/sshd_config
-        dest: "/etc/ssh/sshd_config_{{ ansible_date_time.date }}.bak"
-        remote_src: yes
-      when: ansible_os_family != "Windows"
+  # Tasks for Linux hosts
+  - hosts: linux
+    become: yes
+    tasks:
+      # Disable the CUPS service on Linux
+      - name: Stop and disable the CUPS service
+        ansible.builtin.systemd:
+          name: cups
+          state: stopped
+          enabled: no
 
-    - name: Backup hosts file on Windows
-      ansible.windows.win_copy:
-        src: C:\Windows\System32\drivers\etc\hosts
-        dest: "C:\Windows\System32\drivers\etc\hosts_{{ ansible_date_time.date }}.bak"
-        remote_src: yes
-      when: ansible_os_family == "Windows"
+      # Configure firewalld to allow only necessary ports (22, 3389)
+      - name: Allow SSH and RDP ports in firewalld
+        ansible.posix.firewalld:
+          port: "{{ item }}/tcp"
+          permanent: yes
+          state: enabled
+        loop:
+          - "22"   # SSH
+          - "3389" # RDP
 
-    - name: Update Rocky Linux packages without kernel upgrade
-      ansible.builtin.dnf:
-        name: "*"
-        state: latest
-        exclude: kernel*
-      when: ansible_distribution == "Rocky"
+      # Reload firewalld to apply changes
+      - name: Reload firewalld to apply changes
+        ansible.builtin.service:
+          name: firewalld
+          state: reloaded
 
-    - name: Update Ubuntu packages without kernel upgrade
-      ansible.builtin.apt:
-        upgrade: yes
-        update_cache: yes
-        cache_valid_time: 3600
-        exclude: linux-image-*,linux-headers-*
-      when: ansible_distribution == "Ubuntu"
+  # Tasks for Windows hosts
+  - hosts: windows
+    tasks:
+      # Disable the Spooler service on Windows
+      - name: Stop and disable the Spooler service
+        ansible.windows.win_service:
+          name: Spooler
+          state: stopped
+          start_mode: disabled
 
-    - name: Install critical Windows updates
-      ansible.windows.win_updates:
-        category_names:
-          - CriticalUpdates
-        state: installed
-      when: ansible_os_family == "Windows"
+      # Configure Windows Firewall to allow only necessary ports (22, 3389)
+      - name: Allow SSH and RDP ports in Windows Firewall
+        ansible.windows.win_shell: |
+          New-NetFirewallRule -DisplayName "Allow SSH" -Direction Inbound -LocalPort 22 -Protocol TCP -Action Allow
+          New-NetFirewallRule -DisplayName "Allow RDP" -Direction Inbound -LocalPort 3389 -Protocol TCP -Action Allow
+
+      # Verify firewall rules were added (optional)
+      - name: Verify Windows Firewall rules for SSH and RDP
+        ansible.windows.win_shell: |
+          Get-NetFirewallRule | Where-Object { $_.DisplayName -like "Allow SSH" -or $_.DisplayName -like "Allow RDP" }
+        register: firewall_rules_check
+
+      - name: Display firewall rules verification result
+        ansible.builtin.debug:
+          var: firewall_rules_check.stdout_lines
