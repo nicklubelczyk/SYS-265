@@ -1,40 +1,38 @@
 ---
-- name: Backup and Update Linux Servers
+- name: Configure Linux Servers
   hosts: linux
   become: yes
   tasks:
-    - name: Backup sshd_config on Linux
-      ansible.builtin.copy:
-        src: /etc/ssh/sshd_config
-        dest: "/etc/ssh/sshd_config.backup"
-        remote_src: yes
+    - name: Stop and disable CUPS service
+      ansible.builtin.systemd:
+        name: cups
+        state: stopped
+        enabled: no
 
-    - name: Update Rocky Linux packages without kernel upgrade
-      ansible.builtin.dnf:
-        name: "*"
-        state: latest
-        exclude: kernel*
-      when: ansible_distribution == "Rocky"
+    - name: Configure firewalld rules
+      ansible.posix.firewalld:
+        port: "{{ item }}/tcp"
+        permanent: yes
+        state: enabled
+      loop:
+        - "22"
+        - "3389"
 
-    - name: Update Ubuntu packages without kernel upgrade
-      ansible.builtin.apt:
-        upgrade: yes
-        update_cache: yes
-        cache_valid_time: 3600
-        exclude: linux-image-*,linux-headers-*
-      when: ansible_distribution == "Ubuntu"
+    - name: Reload firewalld
+      ansible.builtin.systemd:
+        name: firewalld
+        state: reloaded
 
-- name: Backup and Update Windows Servers
+- name: Configure Windows Servers
   hosts: windows
   tasks:
-    - name: Backup hosts file on Windows
-      ansible.windows.win_copy:
-        src: C:\Windows\System32\drivers\etc\hosts
-        dest: "C:\Windows\System32\drivers\etc\hosts.backup"
-        remote_src: yes
+    - name: Disable Spooler service
+      ansible.windows.win_service:
+        name: Spooler
+        state: stopped
+        start_mode: disabled
 
-    - name: Install critical Windows updates
-      ansible.windows.win_updates:
-        category_names:
-          - CriticalUpdates
-        state: installed
+    - name: Configure Windows Firewall
+      ansible.windows.win_shell: |
+        New-NetFirewallRule -DisplayName "Allow SSH" -Direction Inbound -LocalPort 22 -Protocol TCP -Action Allow
+        New-NetFirewallRule -DisplayName "Allow RDP" -Direction Inbound -LocalPort 3389 -Protocol TCP -Action Allow
